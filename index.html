@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d18">
+  <meta name="description" content="NetScope — browser-based HTTP network diagnostics dashboard.">
+  <title>NetScope · Network Diagnostics</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#top"><span class="brand-mark">N</span><span>Net<span class="accent">Scope</span><small>NETWORK INTELLIGENCE</small></span></a>
+      <div class="nav-label" id="navLabel">WORKSPACE</div>
+      <nav aria-labelledby="navLabel">
+        <a class="nav active" href="#main" data-section="main">Overview</a>
+        <a class="nav" href="#evidence" data-section="evidence">Raw evidence</a>
+        <a class="nav" href="#history" data-section="history">Test history</a>
+      </nav>
+      <div class="side-note"><span class="pulse" aria-hidden="true"></span> <strong>Browser diagnostics</strong> <small>HTTP-only measurements. Not ICMP, DNS, TCP, or TLS.</small></div>
+      <div class="sidebar-bottom">NETSCOPE <span>v0.2.0</span><br><small>Measurements are estimates, not a network certification.</small></div>
+    </aside>
+
+    <main class="main" id="main">
+      <header class="topbar" id="top">
+        <div>
+          <div class="eyebrow">NETWORK TOOLKIT / OVERVIEW</div>
+          <h1>Connection overview</h1>
+          <p class="sub">An honest HTTP timing test. It shows what the browser can observe — and refuses to guess the rest.</p>
+        </div>
+        <div class="status-pill"><span class="pulse" aria-hidden="true"></span> <span id="statusText" role="status" aria-live="polite">Ready to test</span></div>
+      </header>
+
+      <section class="panel controls-panel" aria-labelledby="controlsHeading">
+        <div class="section-head">
+          <div><div class="eyebrow">TEST PROFILE</div><h2 id="controlsHeading">Run a measurement</h2></div>
+          <span class="source-badge" title="All results come from the browser">source: browser</span>
+        </div>
+        <div class="controls-grid">
+          <label class="field">Profile
+            <select id="profile">
+              <option value="quick_check">Quick Check — 12 samples</option>
+              <option value="latency_monitor">Latency Monitor — 20 samples</option>
+              <option value="http_diagnostics">HTTP Diagnostics — 12 requests</option>
+            </select>
+          </label>
+          <label class="field">Target
+            <select id="target">
+              <option value="cloudflare_trace">Cloudflare trace</option>
+              <option value="google_fonts">Google Fonts API</option>
+            </select>
+          </label>
+          <label class="field">Samples
+            <input id="sampleCountInput" type="number" min="1" max="200" step="1" value="12" inputmode="numeric">
+          </label>
+          <label class="field">Timeout (ms)
+            <input id="timeoutInput" type="number" min="200" max="30000" step="100" value="5000" inputmode="numeric">
+          </label>
+          <label class="field">Interval (ms)
+            <input id="intervalInput" type="number" min="0" max="10000" step="50" value="350" inputmode="numeric">
+          </label>
+        </div>
+        <div class="controls-actions">
+          <button id="runBtn" class="primary" type="button">Run test</button>
+          <button id="stopBtn" class="secondary" type="button" disabled>Stop</button>
+        </div>
+        <div class="progress-track" role="progressbar" aria-labelledby="progressText" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressTrack"><div id="progressBar"></div></div>
+        <div class="progress-caption"><span id="progressText">Ready when you are</span><span id="sampleCount">0 / 12 samples</span></div>
+        <p class="capability-note">Only browser HTTP profiles are available here. <strong>DNS, TCP/TLS, ICMP, regional comparison, and packet capture require a managed backend or an Android-native agent</strong> and are not part of this prototype.</p>
+      </section>
+
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden>
+        <span class="notice-icon" aria-hidden="true">i</span>
+        <span id="noticeText"></span>
+      </div>
+
+      <section class="status-strip" aria-labelledby="statusStripHeading">
+        <div class="eyebrow" id="statusStripHeading">TARGET STATUS · SOURCE</div>
+        <ul id="statusStrip" class="chip-row"></ul>
+      </section>
+
+      <section class="metrics" aria-label="Summary metrics">
+        <article class="metric panel">
+          <div class="metric-head"><span>AVG. LATENCY</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="avgLatency">—</span><small>ms</small></div>
+          <div class="metric-foot">Mean of valid completed samples</div>
+        </article>
+        <article class="metric panel">
+          <div class="metric-head"><span>MIN</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="minLatency">—</span><small>ms</small></div>
+          <div class="metric-foot">Fastest valid sample</div>
+        </article>
+        <article class="metric panel">
+          <div class="metric-head"><span>MAX</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="maxLatency">—</span><small>ms</small></div>
+          <div class="metric-foot">Slowest valid sample</div>
+        </article>
+        <article class="metric panel">
+          <div class="metric-head"><span>MEDIAN</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="medianLatency">—</span><small>ms</small></div>
+          <div class="metric-foot" id="medianNote">Needs ≥ 20 valid samples</div>
+        </article>
+        <article class="metric panel">
+          <div class="metric-head"><span>P95</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="p95Latency">—</span><small>ms</small></div>
+          <div class="metric-foot" id="p95Note">Needs ≥ 20 valid samples</div>
+        </article>
+        <article class="metric panel">
+          <div class="metric-head"><span>JITTER</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="jitter">—</span><small>ms</small></div>
+          <div class="metric-foot">Mean absolute change between valid samples · needs ≥ 2 valid samples</div>
+        </article>
+        <article class="metric panel">
+          <div class="metric-head"><span>HTTP FAILURE RATE</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="failureRate">—</span><small>%</small></div>
+          <div class="metric-foot" id="failureNote">Failed requests of attempts</div>
+        </article>
+        <article class="metric panel">
+          <div class="metric-head"><span>SUCCESSFUL SAMPLES</span><span class="source-badge">browser</span></div>
+          <div class="metric-value"><span id="success">—</span><small>/ 0</small></div>
+          <div class="metric-foot" id="successNote">Completed successfully</div>
+        </article>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="section-head"><div><div class="eyebrow">PERFORMANCE</div><h3>Latency timeline</h3></div><span class="chart-legend"><i aria-hidden="true"></i> HTTP response time (ms)</span></div>
+        <div class="chart-wrap"><canvas id="latencyChart" aria-label="Latency timeline chart" role="img"></canvas><div id="chartEmpty" class="chart-empty">Run a test to populate the timeline.</div></div>
+      </section>
+
+      <section class="lower-grid">
+        <article class="panel detail-panel" aria-labelledby="detailsHeading">
+          <div class="section-head"><div><div class="eyebrow">CURRENT SESSION</div><h3 id="detailsHeading">Test details</h3></div><span class="tag" id="resultTag">NO DATA</span></div>
+          <div class="detail-row"><span>Profile</span><strong id="detailProfile">Not tested</strong></div>
+          <div class="detail-row"><span>Target</span><strong id="detailEndpoint">Not tested</strong></div>
+          <div class="detail-row"><span>Last run</span><strong id="lastRun">—</strong></div>
+          <div class="detail-row"><span>Stop reason</span><strong id="stopReason">—</strong></div>
+          <p class="disclaimer">This is an HTTP <code>fetch()</code> timing test, not ICMP ping and not a packet-loss measurement. CORS, DNS, TCP, TLS, and ISP faults are <strong>not distinguishable</strong> from the browser — a failed request is reported as an <strong>ambiguous network error</strong>, never as a proven cause.</p>
+        </article>
+        <article class="panel history-panel" id="history" aria-labelledby="historyHeading">
+          <div class="section-head"><div><div class="eyebrow">LOCAL STORAGE</div><h3 id="historyHeading">Recent sessions</h3></div><button id="clearHistory" class="text-button" type="button">Clear all</button></div>
+          <div id="historyList" class="history-list"><div class="empty-history">No sessions saved yet.</div></div>
+        </article>
+      </section>
+
+      <section class="panel hypothesis-panel" id="hypothesis" aria-labelledby="hypothesisHeading" hidden>
+        <div class="section-head"><div><div class="eyebrow">EVIDENCE · HYPOTHESES</div><h3 id="hypothesisHeading">What this run can and cannot tell us</h3></div><span class="source-badge">browser</span></div>
+        <p id="hypothesisText" class="hypothesis-text"></p>
+      </section>
+
+      <section class="panel evidence-panel" id="evidence" aria-labelledby="evidenceHeading">
+        <div class="section-head">
+          <div><div class="eyebrow">RAW EVIDENCE</div><h3 id="evidenceHeading">Event log</h3><p class="evidence-count" id="evidenceCount">No events yet</p></div>
+          <div class="evidence-actions">
+            <button id="evidenceToggle" class="secondary" type="button" aria-expanded="true" aria-controls="evidenceBody">Hide raw events</button>
+            <label class="field inline">Method
+              <select id="filterMethod"><option value="all">All</option><option value="http_get">http_get</option><option value="http_head">http_head</option></select>
+            </label>
+            <label class="field inline">Source
+              <select id="filterSource"><option value="all">All</option><option value="browser">browser</option><option value="backend_probe">backend_probe</option><option value="android_native">android_native</option></select>
+            </label>
+            <button id="exportJson" class="secondary" type="button" disabled>Export JSON</button>
+            <button id="exportCsv" class="secondary" type="button" disabled>Export CSV</button>
+          </div>
+        </div>
+        <div id="evidenceBody">
+          <p class="evidence-note">Exported <code>target_url</code> has its query string and fragment removed. Events are ordered by <code>sequence</code>. Undefined values show “—”, never 0.</p>
+          <div class="table-wrap">
+            <table class="event-table">
+              <caption class="visually-hidden">Ordered list of measured events for the current session</caption>
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Time (UTC)</th>
+                  <th scope="col">Source</th>
+                  <th scope="col">Method</th>
+                  <th scope="col">Outcome</th>
+                  <th scope="col">Error kind</th>
+                  <th scope="col">HTTP</th>
+                  <th scope="col">Duration</th>
+                  <th scope="col">Timeout</th>
+                </tr>
+              </thead>
+              <tbody id="eventBody">
+                <tr><td colspan="9" class="empty-row">No events yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <footer>NetScope <span aria-hidden="true">·</span> Web MVP browser prototype <span aria-hidden="true">·</span> Measurements are estimates, not a network certification.</footer>
+    </main>
+  </div>
+  <script src="netscope-core.js"></script>
+  <script src="netscope-view.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
